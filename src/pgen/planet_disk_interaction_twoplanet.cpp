@@ -264,7 +264,7 @@ void MeshBlock::UserWorkBeforeOutput(ParameterInput *pin) {
         Real phip = 2*(M_PI / period)*time1;
         d = sqrt(pow(rp,2) + pow(r,2) - 2*rp*r*cos(phi - phip));
         epsilon = 0.3;
-        R_H = cbrt(gm_planet/3);
+        R_H = rp*cbrt(gm_planet/(3*gm0));
         Real g_mag = -1*((gm_planet*d) / (sqrt(pow(pow(d,2) + pow(epsilon,2)*pow(R_H,2), 3))));
         cosine_term = (pow(r,2)*(pow(cos(phi),2)) - r*rp*cos(phi)*cos(phip) + pow(r,2)*(pow(sin(phi),2)) - r*rp*sin(phi)*sin(phip)) / (r*d);
         sine_term = (r*rp*cos(phi)*sin(phip) - r*rp*sin(phi)*cos(phip)) / (r*d);
@@ -288,6 +288,7 @@ Real Torque(MeshBlock *pmb, int iout) { //This torque is only calculated for fir
         Real period = 2 * M_PI * sqrt(pow(rp, 3) / gm0);
         Real phip = 2 * (M_PI / period) * time2;
         Real d = sqrt(pow(rp,2) + pow(r,2) - 2*rp*r*cos(phi - phip));
+        R_H = rp2*cbrt(gm_planet/(3*gm0));
         Real g_mag = -1*((gm_planet*d) / (sqrt(pow(pow(d,2) + pow(epsilon,2)*pow(R_H,2), 3))));
         Real dens = pmb->phydro->u(IDN,k,j,i);
         Real volume = pmb ->pcoord->GetCellVolume(k,j,i);
@@ -312,6 +313,7 @@ Real Torque2 (MeshBlock *pmb, int iout) {
         Real period = 2 * M_PI * sqrt(pow(rp2, 3) / gm0);
         Real phip = 2 * (M_PI / period) * time3;
         Real d = sqrt(pow(rp2,2) + pow(r,2) - 2*rp2*r*cos(phi - phip));
+        R_H = cbrt(gm_planet2/3);
         Real g_mag = -1*((gm_planet2*d) / (sqrt(pow(pow(d,2) + pow(epsilon,2)*pow(R_H,2), 3))));
         Real dens = pmb->phydro->u(IDN,k,j,i);
         Real volume = pmb ->pcoord->GetCellVolume(k,j,i);
