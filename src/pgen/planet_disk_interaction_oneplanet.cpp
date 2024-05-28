@@ -268,7 +268,7 @@ Real Torque(MeshBlock *pmb, int iout) { //This torque is only calculated for fir
         Real dens = pmb->phydro->u(IDN,k,j,i);
         Real volume = pmb ->pcoord->GetCellVolume(k,j,i);
         Real sine_term = (r*rp*cos(phi)*sin(phip) - r*rp*sin(phi)*cos(phip)) / (r*d);
-        sum_torque +=  dens * volume *r * -g_mag * sine_term;
+        sum_torque +=  dens * volume *r * g_mag * sine_term;
       }
     }
   }
