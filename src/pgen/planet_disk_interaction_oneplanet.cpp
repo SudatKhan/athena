@@ -263,7 +263,10 @@ Real Torque(MeshBlock *pmb, int iout) { //This torque is only calculated for fir
       phi = pmb->pcoord->x2v(j);
       for(int i=is; i<=ie; i++) {
         r = pmb->pcoord->x1v(i);
+        Real period = 2 * M_PI * sqrt(pow(rp, 3) / gm0);
+        Real phip = 2 * (M_PI / period) * time2;
         Real d = sqrt(pow(rp,2) + pow(r,2) - 2*rp*r*cos(phi - phip));
+        Real R_H = rp*cbrt(gm_planet/(3*gm0));
         Real g_mag = -1*((gm_planet*d) / (sqrt(pow(pow(d,2) + pow(epsilon,2)*pow(R_H,2), 3))));
         Real dens = pmb->phydro->u(IDN,k,j,i);
         Real volume = pmb ->pcoord->GetCellVolume(k,j,i);
