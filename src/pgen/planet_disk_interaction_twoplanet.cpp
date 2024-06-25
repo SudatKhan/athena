@@ -190,43 +190,67 @@ void Planet(MeshBlock *pmb, const Real time, const Real dt, const AthenaArray<Re
           r = pmb->pcoord->x1v(i);
           Real period;
           Real phip;
-          Real com;
           Real rp_value;
 
           if (planetnumber == 1) {
-            period = 2 * M_PI * sqrt(pow(rp, 3) / gm0);
+            rp_value = rp;
+            period = 2 * M_PI * sqrt(pow(rp_value, 3) / gm0);
             phip = 2 * (M_PI / period) * time;
             //com = (gm_planet * rp)/ (1 + gm_planet);
-            rp_value = rp; //center of mass is calculated since the two planet system orbits around the barycenter rather than the central star
-          } else {
-            period = 2 * M_PI * sqrt(pow(rp2, 3) / gm0);
+            //center of mass is calculated since the two planet system orbits around the barycenter rather than the central star
+
+            Real d = sqrt(pow(rp_value, 2) + pow(r, 2) - 2 * rp_value * r * cos(phi - phip));
+            Real dens = prim(IDN, k, j, i);
+            Real velocity_x = prim(IVX, k, j, i);
+            Real velocity_y = prim(IVY, k, j, i);
+            epsilon = 0.3;
+            Real R_H = rp_value*cbrt(gm_planet / (3*gm0));
+            Real F_g = -(dens) * ((gm_planet * d) / (sqrt(pow(pow(d, 2) + pow(epsilon, 2) * pow(R_H, 2), 3))));
+            Real cosine_term = (pow(r, 2) * (pow(cos(phi), 2)) - r * rp_value * cos(phi) * cos(phip) + pow(r, 2) * (pow(sin(phi), 2)) - r * rp_value * sin(phi) * sin(phip)) / (r * d);
+            Real sine_term = (r * rp_value * cos(phi) * sin(phip) - r * rp_value * sin(phi) * cos(phip)) / (r * d);
+            Real Fg_x = F_g * cosine_term;
+            Real Fg_y = -F_g * sine_term;
+            Real delta_momentum_x = Fg_x * dt;
+            Real delta_momentum_y = Fg_y * dt;
+            cons(IM1, k, j, i) += delta_momentum_x;
+            cons(IM2, k, j, i) += delta_momentum_y;
+            if (NON_BAROTROPIC_EOS) cons(IEN, k, j, i) += (Fg_x * velocity_x + Fg_y * velocity_y) * dt;
+            Real gamma = (rho0 * p0_over_r0) / (pow(r0, dslope));
+            Real beta = rho0 / (pow(r0, dslope));
+            Real pressure_0 = gamma * pow(r, pslope + dslope);
+            Real surface_density_0 = beta * pow(r, dslope);
+            Real pressure = dens * (pressure_0 / surface_density_0);
+            if (NON_BAROTROPIC_EOS) cons(IEN, k, j, i) += 3.0 / 2.0 * (pressure - prim(IPR, k, j, i));
+          } 
+          if (planetnumber == 2) {
+            rp_value = rp2;
+            period = 2 * M_PI * sqrt(pow(rp_value, 3) / gm0);
             phip = 2 * (M_PI / period) * time;
             //com = ((gm_planet * rp) + (gm_planet * rp2)) / (1 + (2.0 * gm_planet));
-            rp_value = rp2;
-          }
 
-          Real d = sqrt(pow(rp_value, 2) + pow(r, 2) - 2 * rp_value * r * cos(phi - phip));
-          Real dens = prim(IDN, k, j, i);
-          Real velocity_x = prim(IVX, k, j, i);
-          Real velocity_y = prim(IVY, k, j, i);
-          epsilon = 0.3;
-          Real R_H = rp_value*cbrt(gm_planet / (3*gm0));
-          Real F_g = -(dens) * ((gm_planet * d) / (sqrt(pow(pow(d, 2) + pow(epsilon, 2) * pow(R_H, 2), 3))));
-          Real cosine_term = (pow(r, 2) * (pow(cos(phi), 2)) - r * rp_value * cos(phi) * cos(phip) + pow(r, 2) * (pow(sin(phi), 2)) - r * rp_value * sin(phi) * sin(phip)) / (r * d);
-          Real sine_term = (r * rp_value * cos(phi) * sin(phip) - r * rp_value * sin(phi) * cos(phip)) / (r * d);
-          Real Fg_x = F_g * cosine_term;
-          Real Fg_y = -F_g * sine_term;
-          Real delta_momentum_x = Fg_x * dt;
-          Real delta_momentum_y = Fg_y * dt;
-          cons(IM1, k, j, i) += delta_momentum_x;
-          cons(IM2, k, j, i) += delta_momentum_y;
-          if (NON_BAROTROPIC_EOS) cons(IEN, k, j, i) += (Fg_x * velocity_x + Fg_y * velocity_y) * dt;
-          Real gamma = (rho0 * p0_over_r0) / (pow(r0, dslope));
-          Real beta = rho0 / (pow(r0, dslope));
-          Real pressure_0 = gamma * pow(r, pslope + dslope);
-          Real surface_density_0 = beta * pow(r, dslope);
-          Real pressure = dens * (pressure_0 / surface_density_0);
-          if (NON_BAROTROPIC_EOS) cons(IEN, k, j, i) += 3.0 / 2.0 * (pressure - prim(IPR, k, j, i));
+            Real d = sqrt(pow(rp_value, 2) + pow(r, 2) - 2 * rp_value * r * cos(phi - phip));
+            Real dens = prim(IDN, k, j, i);
+            Real velocity_x = prim(IVX, k, j, i);
+            Real velocity_y = prim(IVY, k, j, i);
+            epsilon = 0.3;
+            Real R_H = rp_value*cbrt(gm_planet / (3*gm0));
+            Real F_g = -(dens) * ((gm_planet * d) / (sqrt(pow(pow(d, 2) + pow(epsilon, 2) * pow(R_H, 2), 3))));
+            Real cosine_term = (pow(r, 2) * (pow(cos(phi), 2)) - r * rp_value * cos(phi) * cos(phip) + pow(r, 2) * (pow(sin(phi), 2)) - r * rp_value * sin(phi) * sin(phip)) / (r * d);
+            Real sine_term = (r * rp_value * cos(phi) * sin(phip) - r * rp_value * sin(phi) * cos(phip)) / (r * d);
+            Real Fg_x = F_g * cosine_term;
+            Real Fg_y = -F_g * sine_term;
+            Real delta_momentum_x = Fg_x * dt;
+            Real delta_momentum_y = Fg_y * dt;
+            cons(IM1, k, j, i) += delta_momentum_x;
+            cons(IM2, k, j, i) += delta_momentum_y;
+            if (NON_BAROTROPIC_EOS) cons(IEN, k, j, i) += (Fg_x * velocity_x + Fg_y * velocity_y) * dt;
+            Real gamma = (rho0 * p0_over_r0) / (pow(r0, dslope));
+            Real beta = rho0 / (pow(r0, dslope));
+            Real pressure_0 = gamma * pow(r, pslope + dslope);
+            Real surface_density_0 = beta * pow(r, dslope);
+            Real pressure = dens * (pressure_0 / surface_density_0);
+            if (NON_BAROTROPIC_EOS) cons(IEN, k, j, i) += 3.0 / 2.0 * (pressure - prim(IPR, k, j, i));
+          }
         }
       }
     }
@@ -392,7 +416,7 @@ void Steady_State_Inner(MeshBlock *pmb, Coordinates *pco,
         Real beta = rho0/(pow(r0, dslope));
         Real pressure_0 = gamma * pow(r, pslope+dslope);
         Real surface_density_0 = beta * pow(r, dslope);
-        Real surface_density = rho0 / sqrt(r/rp);
+        Real surface_density = rho0 / sqrt(r);
         Real pressure = surface_density * (pressure_0/surface_density_0);
         Real v_r = -3.0/2.0 * alpha * pow(scale,2) * sqrt((gm0+gm_planet)/r);
         Real v_phi = r * sqrt(1-0.5*pow(scale,2)) * sqrt(gm0+gm_planet)* sqrt(1 / pow(r,3));
@@ -416,19 +440,19 @@ void Steady_State_Outer(MeshBlock *pmb, Coordinates *pco,
     for (int j=jl; j<=ju; ++j) {
       phi = pmb->pcoord->x2v(j);
       for (int i=1; i<=ngh; ++i) {
-        r = pmb->pcoord->x1v(iu+1);
+        r = pmb->pcoord->x1v(iu+i);
         Real gamma = (rho0*p0_over_r0) / (pow(r0, dslope));
         Real beta = rho0/(pow(r0, dslope));
         Real pressure_0 = gamma * pow(r, pslope+dslope);
         Real surface_density_0 = beta * pow(r, dslope);
-        Real surface_density = rho0 / sqrt(r/rp);
+        Real surface_density = rho0 / sqrt(r);
         Real pressure = surface_density * (pressure_0/surface_density_0);
         Real v_r = -3.0/2.0 * alpha * pow(scale,2) * sqrt((gm0+gm_planet)/r);
         Real v_phi = r * sqrt(1-0.5*pow(scale,2)) * sqrt(gm0+gm_planet)* sqrt(1 / pow(r,3));
-        prim(IDN,k,j,iu+1) = surface_density;
-        prim(IPR,k,j,iu+1) = pressure;
-        prim(IVX,k,j,iu+1) = v_r;
-        prim(IVY,k,j,iu+1) = v_phi;
+        prim(IDN,k,j,iu+i) = surface_density;
+        prim(IPR,k,j,iu+i) = pressure;
+        prim(IVX,k,j,iu+i) = v_r;
+        prim(IVY,k,j,iu+i) = v_phi;
       }
     }
   }
