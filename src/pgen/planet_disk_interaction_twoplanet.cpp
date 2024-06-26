@@ -181,23 +181,20 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
 void Planet(MeshBlock *pmb, const Real time, const Real dt, const AthenaArray<Real> &prim,
             const AthenaArray<Real> &prim_scalar, const AthenaArray<Real> &bbc,
             AthenaArray<Real> &cons, AthenaArray<Real> &cons_scalar) {
-  for (int planetnumber = 1; planetnumber <= 2; ++planetnumber) {
-    for (int k = pmb->ks; k <= pmb->ke; ++k) {
-      z = pmb->pcoord->x3v(k);
-      for (int j = pmb->js; j <= pmb->je; ++j) {
-        phi = pmb->pcoord->x2v(j);
-        for (int i = pmb->is; i <= pmb->ie; ++i) {
-          r = pmb->pcoord->x1v(i);
-          Real period;
-          Real phip;
-          Real rp_value;
-
+  for (int k = pmb->ks; k <= pmb->ke; ++k) {
+    z = pmb->pcoord->x3v(k);
+    for (int j = pmb->js; j <= pmb->je; ++j) {
+      phi = pmb->pcoord->x2v(j);
+      for (int i = pmb->is; i <= pmb->ie; ++i) {
+        r = pmb->pcoord->x1v(i);
+        Real period;
+        Real phip;
+        Real rp_value;
+        for (int planetnumber = 1; planetnumber <= 2; ++planetnumber) {
           if (planetnumber == 1) {
             rp_value = rp;
             period = 2 * M_PI * sqrt(pow(rp_value, 3) / gm0);
             phip = 2 * (M_PI / period) * time;
-            //com = (gm_planet * rp)/ (1 + gm_planet);
-            //center of mass is calculated since the two planet system orbits around the barycenter rather than the central star
 
             Real d = sqrt(pow(rp_value, 2) + pow(r, 2) - 2 * rp_value * r * cos(phi - phip));
             Real dens = prim(IDN, k, j, i);
@@ -215,12 +212,6 @@ void Planet(MeshBlock *pmb, const Real time, const Real dt, const AthenaArray<Re
             cons(IM1, k, j, i) += delta_momentum_x;
             cons(IM2, k, j, i) += delta_momentum_y;
             if (NON_BAROTROPIC_EOS) cons(IEN, k, j, i) += (Fg_x * velocity_x + Fg_y * velocity_y) * dt;
-            Real gamma = (rho0 * p0_over_r0) / (pow(r0, dslope));
-            Real beta = rho0 / (pow(r0, dslope));
-            Real pressure_0 = gamma * pow(r, pslope + dslope);
-            Real surface_density_0 = beta * pow(r, dslope);
-            Real pressure = dens * (pressure_0 / surface_density_0);
-            if (NON_BAROTROPIC_EOS) cons(IEN, k, j, i) += 3.0 / 2.0 * (pressure - prim(IPR, k, j, i));
           } 
           if (planetnumber == 2) {
             rp_value = rp2;
@@ -244,13 +235,14 @@ void Planet(MeshBlock *pmb, const Real time, const Real dt, const AthenaArray<Re
             cons(IM1, k, j, i) += delta_momentum_x;
             cons(IM2, k, j, i) += delta_momentum_y;
             if (NON_BAROTROPIC_EOS) cons(IEN, k, j, i) += (Fg_x * velocity_x + Fg_y * velocity_y) * dt;
-            Real gamma = (rho0 * p0_over_r0) / (pow(r0, dslope));
-            Real beta = rho0 / (pow(r0, dslope));
-            Real pressure_0 = gamma * pow(r, pslope + dslope);
-            Real surface_density_0 = beta * pow(r, dslope);
-            Real pressure = dens * (pressure_0 / surface_density_0);
-            if (NON_BAROTROPIC_EOS) cons(IEN, k, j, i) += 3.0 / 2.0 * (pressure - prim(IPR, k, j, i));
           }
+          Real dens = prim(IDN, k, j, i);
+          Real gamma = (rho0 * p0_over_r0) / (pow(r0, dslope));
+          Real beta = rho0 / (pow(r0, dslope));
+          Real pressure_0 = gamma * pow(r, pslope + dslope);
+          Real surface_density_0 = beta * pow(r, dslope);
+          Real pressure = dens * (pressure_0 / surface_density_0);
+          if (NON_BAROTROPIC_EOS) cons(IEN, k, j, i) += 3.0 / 2.0 * (pressure - prim(IPR, k, j, i));
         }
       }
     }
