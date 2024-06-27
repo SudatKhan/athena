@@ -177,7 +177,6 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
   return;
 }
 
-//Change code to take into account different second planet mass
 void Planet(MeshBlock *pmb, const Real time, const Real dt, const AthenaArray<Real> &prim,
             const AthenaArray<Real> &prim_scalar, const AthenaArray<Real> &bbc,
             AthenaArray<Real> &cons, AthenaArray<Real> &cons_scalar) {
@@ -190,17 +189,16 @@ void Planet(MeshBlock *pmb, const Real time, const Real dt, const AthenaArray<Re
         Real period;
         Real phip;
         Real rp_value;
+        Real dens = prim(IDN, k, j, i);
         for (int planetnumber = 1; planetnumber <= 2; ++planetnumber) {
           if (planetnumber == 1) {
             rp_value = rp;
             period = 2 * M_PI * sqrt(pow(rp_value, 3) / gm0);
             phip = 2 * (M_PI / period) * time;
-
             Real d = sqrt(pow(rp_value, 2) + pow(r, 2) - 2 * rp_value * r * cos(phi - phip));
-            Real dens = prim(IDN, k, j, i);
             Real velocity_x = prim(IVX, k, j, i);
             Real velocity_y = prim(IVY, k, j, i);
-            epsilon = 0.3;
+            Real epsilon = 0.3;
             Real R_H = rp_value*cbrt(gm_planet / (3*gm0));
             Real F_g = -(dens) * ((gm_planet * d) / (sqrt(pow(pow(d, 2) + pow(epsilon, 2) * pow(R_H, 2), 3))));
             Real cosine_term = (pow(r, 2) * (pow(cos(phi), 2)) - r * rp_value * cos(phi) * cos(phip) + pow(r, 2) * (pow(sin(phi), 2)) - r * rp_value * sin(phi) * sin(phip)) / (r * d);
@@ -217,13 +215,10 @@ void Planet(MeshBlock *pmb, const Real time, const Real dt, const AthenaArray<Re
             rp_value = rp2;
             period = 2 * M_PI * sqrt(pow(rp_value, 3) / gm0);
             phip = 2 * (M_PI / period) * time;
-            //com = ((gm_planet * rp) + (gm_planet * rp2)) / (1 + (2.0 * gm_planet));
-
             Real d = sqrt(pow(rp_value, 2) + pow(r, 2) - 2 * rp_value * r * cos(phi - phip));
-            Real dens = prim(IDN, k, j, i);
             Real velocity_x = prim(IVX, k, j, i);
             Real velocity_y = prim(IVY, k, j, i);
-            epsilon = 0.3;
+            Real epsilon = 0.3;
             Real R_H = rp_value*cbrt(gm_planet / (3*gm0));
             Real F_g = -(dens) * ((gm_planet * d) / (sqrt(pow(pow(d, 2) + pow(epsilon, 2) * pow(R_H, 2), 3))));
             Real cosine_term = (pow(r, 2) * (pow(cos(phi), 2)) - r * rp_value * cos(phi) * cos(phip) + pow(r, 2) * (pow(sin(phi), 2)) - r * rp_value * sin(phi) * sin(phip)) / (r * d);
@@ -236,17 +231,17 @@ void Planet(MeshBlock *pmb, const Real time, const Real dt, const AthenaArray<Re
             cons(IM2, k, j, i) += delta_momentum_y;
             if (NON_BAROTROPIC_EOS) cons(IEN, k, j, i) += (Fg_x * velocity_x + Fg_y * velocity_y) * dt;
           }
-          Real dens = prim(IDN, k, j, i);
-          Real gamma = (rho0 * p0_over_r0) / (pow(r0, dslope));
-          Real beta = rho0 / (pow(r0, dslope));
-          Real pressure_0 = gamma * pow(r, pslope + dslope);
-          Real surface_density_0 = beta * pow(r, dslope);
-          Real pressure = dens * (pressure_0 / surface_density_0);
-          if (NON_BAROTROPIC_EOS) cons(IEN, k, j, i) += 3.0 / 2.0 * (pressure - prim(IPR, k, j, i));
         }
+        Real gamma = (rho0 * p0_over_r0) / (pow(r0, dslope));
+        Real beta = rho0 / (pow(r0, dslope));
+        Real pressure_0 = gamma * pow(r, pslope + dslope);
+        Real surface_density_0 = beta * pow(r, dslope);
+        Real pressure = dens * (pressure_0 / surface_density_0);
+        if (NON_BAROTROPIC_EOS) cons(IEN, k, j, i) += 3.0 / 2.0 * (pressure - prim(IPR, k, j, i));
       }
     }
   }
+  return;
 }
 
 void Viscosity(HydroDiffusion *phdif, MeshBlock *pmb, const AthenaArray<Real> &prim, const AthenaArray<Real> &bcc, 
