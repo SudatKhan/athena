@@ -199,8 +199,7 @@ void Planet(MeshBlock *pmb, const Real time, const Real dt, const AthenaArray<Re
         Real delta_momentum_y = Fg_y * dt;
         cons(IM1, k,j,i) += delta_momentum_x;
         cons(IM2, k,j,i) += delta_momentum_y;
-        if (NON_BAROTROPIC_EOS) cons(IEN,k,j,i) += (Fg_x * velocity_x + Fg_y * velocity_y) * dt
-        Real dens = prim(IDN,k,j,i);
+        if (NON_BAROTROPIC_EOS) cons(IEN,k,j,i) += (Fg_x * velocity_x + Fg_y * velocity_y) * dt;
         Real gamma = (rho0*p0_over_r0) / (pow(r0, dslope));
         Real beta = rho0/(pow(r0, dslope));
         Real pressure_0 = gamma * pow(r,pslope+dslope);
