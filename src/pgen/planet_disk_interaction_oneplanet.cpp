@@ -209,6 +209,7 @@ void Planet(MeshBlock *pmb, const Real time, const Real dt, const AthenaArray<Re
       }
     }
   }
+  return;
 }
 
 void Viscosity(HydroDiffusion *phdif, MeshBlock *pmb, const AthenaArray<Real> &prim, const AthenaArray<Real> &bcc, 
