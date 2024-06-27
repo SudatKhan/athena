@@ -211,7 +211,7 @@ void Planet(MeshBlock *pmb, const Real time, const Real dt, const AthenaArray<Re
             cons(IM2, k, j, i) += delta_momentum_y;
             if (NON_BAROTROPIC_EOS) cons(IEN, k, j, i) += (Fg_x * velocity_x + Fg_y * velocity_y) * dt;
           } 
-          if (planetnumber == 2) {
+          else {
             rp_value = rp2;
             period = 2 * M_PI * sqrt(pow(rp_value, 3) / gm0);
             phip = 2 * (M_PI / period) * time;
