@@ -76,7 +76,7 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   gm_planet = pin -> GetOrAddReal("problem", "planetgm", 0.0);
   gm_planet2 = pin -> GetOrAddReal("problem", "planetgm2", 0.0);
   rp = pin -> GetOrAddReal("problem", "ptosr", 1.0);
-  rp2 = pin -> GetOrAddReal("problem", "ptosr2", 1.1);
+  rp2 = pin -> GetOrAddReal("problem", "ptosr2", 0.0);
 
   // Get viscosity parameters and scale ratio
   alpha = pin -> GetOrAddReal("problem", "alpha", 0.0);
