@@ -219,8 +219,8 @@ void Planet(MeshBlock *pmb, const Real time, const Real dt, const AthenaArray<Re
             Real velocity_x = prim(IVX, k, j, i);
             Real velocity_y = prim(IVY, k, j, i);
             Real epsilon = 0.3;
-            Real R_H = rp_value*cbrt(gm_planet / (3*gm0));
-            Real F_g = -(dens) * ((gm_planet * d) / (sqrt(pow(pow(d, 2) + pow(epsilon, 2) * pow(R_H, 2), 3))));
+            Real R_H = rp_value*cbrt(gm_planet2 / (3*gm0));
+            Real F_g = -(dens) * ((gm_planet2 * d) / (sqrt(pow(pow(d, 2) + pow(epsilon, 2) * pow(R_H, 2), 3))));
             Real cosine_term = (pow(r, 2) * (pow(cos(phi), 2)) - r * rp_value * cos(phi) * cos(phip) + pow(r, 2) * (pow(sin(phi), 2)) - r * rp_value * sin(phi) * sin(phip)) / (r * d);
             Real sine_term = (r * rp_value * cos(phi) * sin(phip) - r * rp_value * sin(phi) * cos(phip)) / (r * d);
             Real Fg_x = F_g * cosine_term;
