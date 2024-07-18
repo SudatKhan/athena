@@ -206,44 +206,44 @@ void Planet(MeshBlock *pmb, const Real time, const Real dt, const AthenaArray<Re
       for (int i = pmb->is; i <= pmb->ie; ++i) {
         Real r = pmb->pcoord->x1v(i);
         Real dens = prim(IDN, k, j, i);
-        Real velocity_x = prim(IVX, k, j, i);
-        Real velocity_y = prim(IVY, k, j, i);
 
         for (int planetnumber = 1; planetnumber <= 2; ++planetnumber) {
           Real rp_value;
           Real period;
           Real phip;
-          Real gm_planet;
-
           if (planetnumber == 1) {
-            rp_value = sqrt(R_planet1[0] * R_planet1[0] + R_planet1[1] * R_planet1[1]);
+            rp_value = sqrt(pow(R_planet1[0],2) + pow(R_planet1[1],2) + pow(R_planet1[2],2));
             period = 2 * M_PI * sqrt(pow(rp_value, 3) / gm0);
             phip = 2 * (M_PI / period) * time;
             Real d = sqrt(pow(rp_value, 2) + pow(r, 2) - 2 * rp_value * r * cos(phi - phip));
+            Real velocity_x = prim(IVX, k, j, i);
+            Real velocity_y = prim(IVY, k, j, i);
             Real epsilon = 0.3;
-            Real R_H = rp_value * cbrt(gm_planet / (3 * gm0));
-            Real F_g = -(dens) * ((gm_planet * d) / (sqrt(pow(d, 2) + pow(epsilon * R_H, 2)) * sqrt(pow(d, 2) + pow(epsilon * R_H, 2)) * sqrt(pow(d, 2) + pow(epsilon * R_H, 2))));
-            Real cosine_term = (r * cos(phi) - rp_value * cos(phip)) / d;
-            Real sine_term = (r * sin(phi) - rp_value * sin(phip)) / d;
+            Real R_H = rp_value*cbrt(gm_planet / (3*gm0));
+            Real F_g = -(dens) * ((gm_planet * d) / (sqrt(pow(pow(d, 2) + pow(epsilon, 2) * pow(R_H, 2), 3))));
+            Real cosine_term = (pow(r, 2) * (pow(cos(phi), 2)) - r * rp_value * cos(phi) * cos(phip) + pow(r, 2) * (pow(sin(phi), 2)) - r * rp_value * sin(phi) * sin(phip)) / (r * d);
+            Real sine_term = (r * rp_value * cos(phi) * sin(phip) - r * rp_value * sin(phi) * cos(phip)) / (r * d);
             Real Fg_x = F_g * cosine_term;
-            Real Fg_y = F_g * sine_term;
+            Real Fg_y = -F_g * sine_term;
             Real delta_momentum_x = Fg_x * dt;
             Real delta_momentum_y = Fg_y * dt;
             cons(IM1, k, j, i) += delta_momentum_x;
             cons(IM2, k, j, i) += delta_momentum_y;
             if (NON_BAROTROPIC_EOS) cons(IEN, k, j, i) += (Fg_x * velocity_x + Fg_y * velocity_y) * dt;
           } else {
-            rp_value = sqrt(R_planet2[0] * R_planet2[0] + R_planet2[1] * R_planet2[1]);
+            rp_value = sqrt(pow(R_planet2[0],2) + pow(R_planet2[1],2) + pow(R_planet2[2],2));
             period = 2 * M_PI * sqrt(pow(rp_value, 3) / gm0);
             phip = 2 * (M_PI / period) * time;
             Real d = sqrt(pow(rp_value, 2) + pow(r, 2) - 2 * rp_value * r * cos(phi - phip));
+            Real velocity_x = prim(IVX, k, j, i);
+            Real velocity_y = prim(IVY, k, j, i);
             Real epsilon = 0.3;
-            Real R_H = rp_value * cbrt(gm_planet2 / (3 * gm0));
-            Real F_g = -(dens) * ((gm_planet2 * d) / (sqrt(pow(d, 2) + pow(epsilon * R_H, 2)) * sqrt(pow(d, 2) + pow(epsilon * R_H, 2)) * sqrt(pow(d, 2) + pow(epsilon * R_H, 2))));
-            Real cosine_term = (r * cos(phi) - rp_value * cos(phip)) / d;
-            Real sine_term = (r * sin(phi) - rp_value * sin(phip)) / d;
+            Real R_H = rp_value*cbrt(gm_planet / (3*gm0));
+            Real F_g = -(dens) * ((gm_planet * d) / (sqrt(pow(pow(d, 2) + pow(epsilon, 2) * pow(R_H, 2), 3))));
+            Real cosine_term = (pow(r, 2) * (pow(cos(phi), 2)) - r * rp_value * cos(phi) * cos(phip) + pow(r, 2) * (pow(sin(phi), 2)) - r * rp_value * sin(phi) * sin(phip)) / (r * d);
+            Real sine_term = (r * rp_value * cos(phi) * sin(phip) - r * rp_value * sin(phi) * cos(phip)) / (r * d);
             Real Fg_x = F_g * cosine_term;
-            Real Fg_y = F_g * sine_term;
+            Real Fg_y = -F_g * sine_term;
             Real delta_momentum_x = Fg_x * dt;
             Real delta_momentum_y = Fg_y * dt;
             cons(IM1, k, j, i) += delta_momentum_x;
