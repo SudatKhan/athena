@@ -30,7 +30,7 @@ Real DenProfileCyl(const Real rad, const Real phi, const Real z);
 Real PoverR(const Real rad, const Real phi, const Real z);
 Real VelProfileCyl(const Real rad, const Real phi, const Real z);
 // problem parameters which are useful to make global to this file
-Real gm0, r0, rho0, dslope, p0_over_r0, pslope, gamma_gas, gm_planet, gm_planet2, alpha, nu_iso, scale, z, phi, r, rp, rp2, d, dfloor, Omega0, cosine_term, sine_term, epsilon;
+Real gm0, gm_star, rstar, r0, rho0, dslope, p0_over_r0, pslope, gamma_gas, gm_planet, gm_planet2, alpha, nu_iso, scale, z, phi, r, rp, rp2, d, dfloor, Omega0, cosine_term, sine_term, epsilon;
 } // namespace
 
 // User-defined boundary conditions for disk simulations
@@ -65,7 +65,7 @@ void DiskOuterX3(MeshBlock *pmb, Coordinates *pco, AthenaArray<Real> &prim,FaceF
 void Mesh::InitUserMeshData(ParameterInput *pin) {
   Real x1, x2, x3;
   // Get parameters for gravitatonal potential of central star mass
-  gm0 = pin->GetOrAddReal("problem","GM",0.0);
+  gm0 = pin->GetOrAddReal("problem", "GM", 0.0);
   r0 = pin->GetOrAddReal("problem","r0",1.0);
 
   // Get parameters for initial density and velocity
@@ -73,6 +73,7 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   dslope = pin->GetOrAddReal("problem","dslope",0.0);
 
   // Get parameters for gravitational potential of orbiting protoplanet
+  gm_star = pin->GetOrAddReal("problem","starmass",0.0);
   gm_planet = pin -> GetOrAddReal("problem", "planetgm", 0.0);
   gm_planet2 = pin -> GetOrAddReal("problem", "planetgm2", 0.0);
   rp = pin -> GetOrAddReal("problem", "ptosr", 1.0);
@@ -116,26 +117,31 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
     EnrollUserBoundaryFunction(BoundaryFace::outer_x3, DiskOuterX3);
   }
   
-  void Planet(MeshBlock *pmb, const Real time, const Real dt, const AthenaArray<Real> &prim,
+  /*void Planet(MeshBlock *pmb, const Real time, const Real dt, const AthenaArray<Real> &prim,
               const AthenaArray<Real> &prim_scalar, const AthenaArray<Real> &bcc,
               AthenaArray<Real> &cons, AthenaArray<Real> &cons_scalar);
-  EnrollUserExplicitSourceFunction(Planet);
+  EnrollUserExplicitSourceFunction(Planet);*/
+
+  void StarandPlanet(MeshBlock *pmb, const Real time, const Real dt, const AthenaArray<Real> &prim,
+              const AthenaArray<Real> &prim_scalar, const AthenaArray<Real> &bcc,
+              AthenaArray<Real> &cons, AthenaArray<Real> &cons_scalar);
+  EnrollUserExplicitSourceFunction(StarandPlanet);
 
   void Viscosity(HydroDiffusion *phdif, MeshBlock *pmb, const AthenaArray<Real> &prim, const AthenaArray<Real> &bcc, 
             int is, int ie, int js, int je, int ks, int ke);
   EnrollViscosityCoefficient(Viscosity);
 
-  Real Torque(MeshBlock *pmb, int iout);
+  /*Real Torque(MeshBlock *pmb, int iout);
   Real Torque2(MeshBlock *pmb, int iout);
   AllocateUserHistoryOutput(2);
   EnrollUserHistoryOutput(0, Torque, "first planet torque");
   EnrollUserHistoryOutput(1, Torque2, "second planet torque");
-  return;
+  return;*/
 }
-void MeshBlock::InitUserMeshBlockData(ParameterInput *pin) {
+/*void MeshBlock::InitUserMeshBlockData(ParameterInput *pin) {
     AllocateUserOutputVariables(2);
     return;
-}
+}*/
   
 //========================================================================================
 //! \fn void MeshBlock::ProblemGenerator(ParameterInput *pin)
@@ -155,9 +161,9 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
       for (int i=is; i<=ie; ++i) {
         r = pcoord->x1v(i);
         GetCylCoord(pcoord,rad,phi,z,i,j,k); // convert to cylindrical coordinates
-        Real surface_density = rho0 / sqrt(r/rp);
-        Real v_r = -3.0/2.0 * alpha * pow(scale,2) * sqrt((gm0+gm_planet)/r);
-        Real v_phi = r * sqrt(1-0.5*pow(scale,2)) * sqrt(gm0+gm_planet)* sqrt(1 / pow(r,3));
+        Real surface_density = rho0 / sqrt(r);
+        Real v_r = -3.0/2.0 * alpha * pow(scale,2) * sqrt((gm_star+gm_planet)/r);
+        Real v_phi = r * sqrt(1-0.5*pow(scale,2)) * sqrt(gm_star+gm_planet)* sqrt(1 / pow(r,3));
         phydro->u(IDN,k,j,i) = surface_density;
         phydro->u(IM1,k,j,i) = surface_density * v_r;
         if (std::strcmp(COORDINATE_SYSTEM, "cylindrical") == 0) {
@@ -173,95 +179,115 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
       }
     }
   }
-
   return;
 }
 
-void Planet(MeshBlock *pmb, const Real time, const Real dt, const AthenaArray<Real> &prim,
+void StarandPlanet(MeshBlock *pmb, const Real time, const Real dt, const AthenaArray<Real> &prim,
             const AthenaArray<Real> &prim_scalar, const AthenaArray<Real> &bbc,
             AthenaArray<Real> &cons, AthenaArray<Real> &cons_scalar) {
-  // Positions of the star and planets
+  Real rp_value1;
+  Real rp_value2;
+  Real period;
+  Real phip;
+  Real phis;
+
+    // Positions of the star and planets
   Real R_star[3] = {0.0, 0.0, 0.0};    // Star at the origin
   Real R_planet1[3] = {rp, 0.0, 0.0}; // Initial position of the first planet
-  Real R_planet2[3] = {rp2, 0.0, 0.0}; // Initial position of the second planet
 
   // Calculate the barycenter
   Real R_bary[3];
   for (int i = 0; i < 3; ++i) {
-    R_bary[i] = (gm0 * R_star[i] + gm_planet * R_planet1[i] + gm_planet2 * R_planet2[i]) /
-                (gm0 + gm_planet + gm_planet2);
+    R_bary[i] = (gm_star * R_star[i] + gm_planet * R_planet1[i]) /
+                (gm_star + gm_planet);
   }
 
   // Adjust the positions of the star and planets relative to the barycenter
   for (int i = 0; i < 3; ++i) {
     R_star[i] -= R_bary[i];
     R_planet1[i] -= R_bary[i];
-    R_planet2[i] -= R_bary[i];
   }
 
   for (int k = pmb->ks; k <= pmb->ke; ++k) {
-    Real z = pmb->pcoord->x3v(k);
+    z = pmb->pcoord->x3v(k);
     for (int j = pmb->js; j <= pmb->je; ++j) {
-      Real phi = pmb->pcoord->x2v(j);
+      phi = pmb->pcoord->x2v(j);
       for (int i = pmb->is; i <= pmb->ie; ++i) {
-        Real r = pmb->pcoord->x1v(i);
-        Real dens = prim(IDN, k, j, i);
-
-        for (int planetnumber = 1; planetnumber <= 2; ++planetnumber) {
-          Real rp_value;
-          Real period;
-          Real phip;
-          if (planetnumber == 1) {
-            rp_value = sqrt(pow(R_planet1[0],2) + pow(R_planet1[1],2) + pow(R_planet1[2],2));
-            period = 2 * M_PI * sqrt(pow(rp_value, 3) / gm0);
-            phip = 2 * (M_PI / period) * time;
-            Real d = sqrt(pow(rp_value, 2) + pow(r, 2) - 2 * rp_value * r * cos(phi - phip));
-            Real velocity_x = prim(IVX, k, j, i);
-            Real velocity_y = prim(IVY, k, j, i);
-            Real epsilon = 0.3;
-            Real R_H = rp_value*cbrt(gm_planet / (3*gm0));
-            Real F_g = -(dens) * ((gm_planet * d) / (sqrt(pow(pow(d, 2) + pow(epsilon, 2) * pow(R_H, 2), 3))));
-            Real cosine_term = (pow(r, 2) * (pow(cos(phi), 2)) - r * rp_value * cos(phi) * cos(phip) + pow(r, 2) * (pow(sin(phi), 2)) - r * rp_value * sin(phi) * sin(phip)) / (r * d);
-            Real sine_term = (r * rp_value * cos(phi) * sin(phip) - r * rp_value * sin(phi) * cos(phip)) / (r * d);
-            Real Fg_x = F_g * cosine_term;
-            Real Fg_y = -F_g * sine_term;
-            Real delta_momentum_x = Fg_x * dt;
-            Real delta_momentum_y = Fg_y * dt;
-            cons(IM1, k, j, i) += delta_momentum_x;
-            cons(IM2, k, j, i) += delta_momentum_y;
-            if (NON_BAROTROPIC_EOS) cons(IEN, k, j, i) += (Fg_x * velocity_x + Fg_y * velocity_y) * dt;
-          } else {
-            rp_value = sqrt(pow(R_planet2[0],2) + pow(R_planet2[1],2) + pow(R_planet2[2],2));
-            period = 2 * M_PI * sqrt(pow(rp_value, 3) / gm0);
-            phip = 2 * (M_PI / period) * time;
-            Real d = sqrt(pow(rp_value, 2) + pow(r, 2) - 2 * rp_value * r * cos(phi - phip));
-            Real velocity_x = prim(IVX, k, j, i);
-            Real velocity_y = prim(IVY, k, j, i);
-            Real epsilon = 0.3;
-            Real R_H = rp_value*cbrt(gm_planet / (3*gm0));
-            Real F_g = -(dens) * ((gm_planet * d) / (sqrt(pow(pow(d, 2) + pow(epsilon, 2) * pow(R_H, 2), 3))));
-            Real cosine_term = (pow(r, 2) * (pow(cos(phi), 2)) - r * rp_value * cos(phi) * cos(phip) + pow(r, 2) * (pow(sin(phi), 2)) - r * rp_value * sin(phi) * sin(phip)) / (r * d);
-            Real sine_term = (r * rp_value * cos(phi) * sin(phip) - r * rp_value * sin(phi) * cos(phip)) / (r * d);
-            Real Fg_x = F_g * cosine_term;
-            Real Fg_y = -F_g * sine_term;
-            Real delta_momentum_x = Fg_x * dt;
-            Real delta_momentum_y = Fg_y * dt;
-            cons(IM1, k, j, i) += delta_momentum_x;
-            cons(IM2, k, j, i) += delta_momentum_y;
-            if (NON_BAROTROPIC_EOS) cons(IEN, k, j, i) += (Fg_x * velocity_x + Fg_y * velocity_y) * dt;
-          }
-        }
-        Real gamma = (rho0 * p0_over_r0) / (pow(r0, dslope));
-        Real beta = rho0 / (pow(r0, dslope));
-        Real pressure_0 = gamma * pow(r, pslope + dslope);
+        r = pmb->pcoord->x1v(i);
+        Real dens = prim(IDN,k,j,i);
+        Real velocity_x = prim(IVX,k,j,i);
+        Real velocity_y = prim(IVY,k,j,i);
+        rp_value1 = sqrt(pow(R_star[0], 2) + pow(R_star[1], 2) + pow(R_star[2],2));
+        rp_value2 = sqrt(pow(R_planet1[0], 2) + pow(R_planet1[1], 2) + pow(R_planet1[2],2));
+        period = 2*M_PI*sqrt(pow(rp,3)/(gm_star + gm_planet));
+        phip = 2*(M_PI / period)*time;
+        phis = phip + M_PI;
+        epsilon = 0.3;
+        Real R_H = rp*cbrt(gm_planet/(3*gm_star));
+        Real r_s = sqrt(pow(r*cos(phi) - rp_value1*cos(phis),2) + pow(r*sin(phi) - rp_value1*sin(phis),2));
+        Real d = sqrt(pow(r*cos(phi) + (rp_value2)*cos(phip),2) + pow(r*sin(phi) + (rp_value2)*sin(phip),2));
+        Real Fg_star = (-1*gm_star) / pow(r_s, 2);
+        Real Fg_planet = -(dens)* ((gm_planet*d) / (sqrt(pow(pow(d,2) + pow(epsilon,2)*pow(R_H,2), 3))));
+        Real Fg_central = gm0/(pow(r,2));
+        cosine_term = ((rp_value1*cos(phis))*(r*cos(phi) - (rp_value2)*cos(phip)) + (rp_value1*sin(phis)) * (r*sin(phi) - (rp_value2)*sin(phip))) / (r_s * d);
+        sine_term = (rp_value1 * abs(r*sin(phi - phis) - (rp_value2)*sin(phip - phis))) / (r_s * d);
+        Real Fg_x = Fg_star*cosine_term + Fg_planet*cosine_term + Fg_central;
+        Real Fg_y = -Fg_star*sine_term - Fg_planet*sine_term - Fg_central;
+        Real delta_momentum_x = Fg_x * dt;
+        Real delta_momentum_y = Fg_y * dt;
+        cons(IM1, k,j,i) += delta_momentum_x;
+        cons(IM2, k,j,i) += delta_momentum_y;
+        if (NON_BAROTROPIC_EOS) cons(IEN,k,j,i) += (Fg_x * velocity_x + Fg_y * velocity_y) * dt;
+        Real gamma = (rho0*p0_over_r0) / (pow(r0, dslope));
+        Real beta = rho0/(pow(r0, dslope));
+        Real pressure_0 = gamma * pow(r,pslope+dslope);
         Real surface_density_0 = beta * pow(r, dslope);
-        Real pressure = dens * (pressure_0 / surface_density_0);
-        if (NON_BAROTROPIC_EOS) cons(IEN, k, j, i) += 3.0 / 2.0 * (pressure - prim(IPR, k, j, i));
+        Real pressure = dens * (pressure_0/surface_density_0); //definition of isothermal eos
+        if (NON_BAROTROPIC_EOS) cons(IEN,k,j,i) += 3.0/2.0 * (pressure-prim(IPR,k,j,i));    
       }
     }
   }
   return;
 }
+
+/*void Planet(MeshBlock *pmb, const Real time, const Real dt, const AthenaArray<Real> &prim,
+            const AthenaArray<Real> &prim_scalar, const AthenaArray<Real> &bbc,
+            AthenaArray<Real> &cons, AthenaArray<Real> &cons_scalar) {
+  for (int k = pmb->ks; k <= pmb->ke; ++k) {
+    z = pmb->pcoord->x3v(k);
+    for (int j = pmb->js; j <= pmb->je; ++j) {
+      phi = pmb->pcoord->x2v(j);
+      for (int i = pmb->is; i <= pmb->ie; ++i) {
+        r = pmb->pcoord->x1v(i);
+        Real period = 2*M_PI*sqrt(pow(rp,3)/gm0);
+        Real phip = 2*(M_PI / period)*time;
+        Real d = sqrt(pow(rp,2) + pow(r,2) - 2*rp*r*cos(phi - phip));
+        Real dens = prim(IDN,k,j,i);
+        Real velocity_x = prim(IVX,k,j,i);
+        Real velocity_y = prim(IVY,k,j,i);
+        epsilon = 0.3;
+        Real R_H = cbrt(gm_planet/(3*gm0));
+        Real F_g = -(dens)* ((gm_planet*d) / (sqrt(pow(pow(d,2) + pow(epsilon,2)*pow(R_H,2), 3))));
+        cosine_term = (pow(r,2)*(pow(cos(phi),2)) - r*rp*cos(phi)*cos(phip) + pow(r,2)*(pow(sin(phi),2)) - r*rp*sin(phi)*sin(phip)) / (r*d);
+        sine_term = (r*rp*cos(phi)*sin(phip) - r*rp*sin(phi)*cos(phip)) / (r*d);
+        Real Fg_x = F_g*cosine_term;
+        Real Fg_y = -F_g*sine_term;
+        Real delta_momentum_x = Fg_x * dt;
+        Real delta_momentum_y = Fg_y * dt;
+        cons(IM1, k,j,i) += delta_momentum_x;
+        cons(IM2, k,j,i) += delta_momentum_y;
+        if (NON_BAROTROPIC_EOS) cons(IEN,k,j,i) += (Fg_x * velocity_x + Fg_y * velocity_y) * dt;
+        Real gamma = (rho0*p0_over_r0) / (pow(r0, dslope));
+        Real beta = rho0/(pow(r0, dslope));
+        Real pressure_0 = gamma * pow(r,pslope+dslope);
+        Real surface_density_0 = beta * pow(r, dslope);
+        Real pressure = dens * (pressure_0/surface_density_0); //definition of isothermal eos
+        if (NON_BAROTROPIC_EOS) cons(IEN,k,j,i) += 3.0/2.0 * (pressure-prim(IPR,k,j,i));
+      }
+    }
+  }
+  return;
+}*/
 
 void Viscosity(HydroDiffusion *phdif, MeshBlock *pmb, const AthenaArray<Real> &prim, const AthenaArray<Real> &bcc, 
                int is, int ie, int js, int je, int ks, int ke) {
@@ -272,7 +298,7 @@ void Viscosity(HydroDiffusion *phdif, MeshBlock *pmb, const AthenaArray<Real> &p
           phi = pmb->pcoord->x2v(j);
           for (int i = is; i <= ie; ++i) {
             r = pmb->pcoord->x1v(i);
-            Real omega = sqrt(gm0/(pow(r,3)));
+            Real omega = sqrt((gm_star + gm_planet)/(pow(r,3)));
             Real sound_speed = scale * omega*r;
             Real kinematic_viscosity = alpha * sound_speed * (sound_speed/omega); 
             phdif->nu(HydroDiffusion::DiffProcess::iso,k,j,i) = kinematic_viscosity;
@@ -282,7 +308,7 @@ void Viscosity(HydroDiffusion *phdif, MeshBlock *pmb, const AthenaArray<Real> &p
   }
 }
 
-void MeshBlock::UserWorkBeforeOutput(ParameterInput *pin) {
+/*void MeshBlock::UserWorkBeforeOutput(ParameterInput *pin) {
   Real time1 = pmy_mesh -> time;
   for (int k = ks; k <= ke; ++k) {
     z = pcoord->x3v(k);
@@ -290,11 +316,11 @@ void MeshBlock::UserWorkBeforeOutput(ParameterInput *pin) {
       phi = pcoord->x2v(j);
       for (int i = is; i <= ie; ++i) {
         r = pcoord->x1v(i);
-        Real period = 2*M_PI*sqrt(pow(rp,3)/gm0);
+        Real period = 2*M_PI*sqrt(pow(rp,3)/gm_star);
         Real phip = 2*(M_PI / period)*time1;
         d = sqrt(pow(rp,2) + pow(r,2) - 2*rp*r*cos(phi - phip));
         epsilon = 0.3;
-        Real R_H = rp*cbrt(gm_planet/(3*gm0));
+        Real R_H = rp*cbrt(gm_planet/(3*gm_star));
         Real g_mag = -1*((gm_planet*d) / (sqrt(pow(pow(d,2) + pow(epsilon,2)*pow(R_H,2), 3))));
         cosine_term = (pow(r,2)*(pow(cos(phi),2)) - r*rp*cos(phi)*cos(phip) + pow(r,2)*(pow(sin(phi),2)) - r*rp*sin(phi)*sin(phip)) / (r*d);
         sine_term = (r*rp*cos(phi)*sin(phip) - r*rp*sin(phi)*cos(phip)) / (r*d);
@@ -303,9 +329,9 @@ void MeshBlock::UserWorkBeforeOutput(ParameterInput *pin) {
       }
     }
   }
-}
+}*/
 
-Real Torque(MeshBlock *pmb, int iout) { //This torque is only calculated for first planet
+/*Real Torque(MeshBlock *pmb, int iout) { //This torque is only calculated for first planet
   int is=pmb->is, ie=pmb->ie, js=pmb->js, je=pmb->je, ks=pmb->ks, ke=pmb->ke;
   Real sum_torque = 0;
   Real time2 = pmb->pmy_mesh->time;
@@ -315,10 +341,10 @@ Real Torque(MeshBlock *pmb, int iout) { //This torque is only calculated for fir
       phi = pmb->pcoord->x2v(j);
       for(int i=is; i<=ie; i++) {
         r = pmb->pcoord->x1v(i);
-        Real period = 2 * M_PI * sqrt(pow(rp, 3) / gm0);
+        Real period = 2 * M_PI * sqrt(pow(rp, 3) / gm_star);
         Real phip = 2 * (M_PI / period) * time2;
         Real d = sqrt(pow(rp,2) + pow(r,2) - 2*rp*r*cos(phi - phip));
-        Real R_H = rp*cbrt(gm_planet/(3*gm0));
+        Real R_H = rp*cbrt(gm_planet/(3*gm_star));
         Real g_mag = -1*((gm_planet*d) / (sqrt(pow(pow(d,2) + pow(epsilon,2)*pow(R_H,2), 3))));
         Real dens = pmb->phydro->u(IDN,k,j,i);
         Real volume = pmb ->pcoord->GetCellVolume(k,j,i);
@@ -340,10 +366,10 @@ Real Torque2 (MeshBlock *pmb, int iout) {
       phi = pmb->pcoord->x2v(j);
       for(int i=is; i<=ie; i++) {
         r = pmb->pcoord->x1v(i);
-        Real period = 2 * M_PI * sqrt(pow(rp2, 3) / gm0);
+        Real period = 2 * M_PI * sqrt(pow(rp2, 3) / gm_star);
         Real phip = 2 * (M_PI / period) * time3;
         Real d = sqrt(pow(rp2,2) + pow(r,2) - 2*rp2*r*cos(phi - phip));
-        Real R_H = rp2*cbrt(gm_planet2/(3*gm0));
+        Real R_H = rp2*cbrt(gm_planet2/(3*gm_star));
         Real g_mag = -1*((gm_planet2*d) / (sqrt(pow(pow(d,2) + pow(epsilon,2)*pow(R_H,2), 3))));
         Real dens = pmb->phydro->u(IDN,k,j,i);
         Real volume = pmb ->pcoord->GetCellVolume(k,j,i);
@@ -353,7 +379,7 @@ Real Torque2 (MeshBlock *pmb, int iout) {
     }
   }
   return sum_torque2;
-}
+}*/
 
 namespace {
 //----------------------------------------------------------------------------------------
@@ -424,8 +450,8 @@ void Steady_State_Inner(MeshBlock *pmb, Coordinates *pco,
         Real surface_density_0 = beta * pow(r, dslope);
         Real surface_density = rho0 / sqrt(r);
         Real pressure = surface_density * (pressure_0/surface_density_0);
-        Real v_r = -3.0/2.0 * alpha * pow(scale,2) * sqrt((gm0+gm_planet)/r);
-        Real v_phi = r * sqrt(1-0.5*pow(scale,2)) * sqrt(gm0+gm_planet)* sqrt(1 / pow(r,3));
+        Real v_r = -3.0/2.0 * alpha * pow(scale,2) * sqrt((gm_star+gm_planet)/r);
+        Real v_phi = r * sqrt(1-0.5*pow(scale,2)) * sqrt(gm_star+gm_planet)* sqrt(1 / pow(r,3));
         prim(IDN,k,j,il-i) = surface_density;
         prim(IPR,k,j,il-i) = pressure;
         prim(IVX,k,j,il-i) = v_r;
@@ -453,8 +479,8 @@ void Steady_State_Outer(MeshBlock *pmb, Coordinates *pco,
         Real surface_density_0 = beta * pow(r, dslope);
         Real surface_density = rho0 / sqrt(r);
         Real pressure = surface_density * (pressure_0/surface_density_0);
-        Real v_r = -3.0/2.0 * alpha * pow(scale,2) * sqrt((gm0+gm_planet)/r);
-        Real v_phi = r * sqrt(1-0.5*pow(scale,2)) * sqrt(gm0+gm_planet)* sqrt(1 / pow(r,3));
+        Real v_r = -3.0/2.0 * alpha * pow(scale,2) * sqrt((gm_star+gm_planet)/r);
+        Real v_phi = r * sqrt(1-0.5*pow(scale,2)) * sqrt(gm_star+gm_planet)* sqrt(1 / pow(r,3));
         prim(IDN,k,j,iu+i) = surface_density;
         prim(IPR,k,j,iu+i) = pressure;
         prim(IVX,k,j,iu+i) = v_r;
@@ -463,6 +489,98 @@ void Steady_State_Outer(MeshBlock *pmb, Coordinates *pco,
     }
   }
 }
+
+//----------------------------------------------------------------------------------------
+//! User-defined boundary Conditions: sets solution in ghost zones to initial values
+
+/*void DiskInnerX1(MeshBlock *pmb,Coordinates *pco, AthenaArray<Real> &prim, FaceField &b,
+                 Real time, Real dt,
+                 int il, int iu, int jl, int ju, int kl, int ku, int ngh) {
+  Real rad(0.0), phi(0.0), z(0.0);
+  Real vel;
+  OrbitalVelocityFunc &vK = pmb->porb->OrbitalVelocity;
+  if (std::strcmp(COORDINATE_SYSTEM, "cylindrical") == 0) {
+    for (int k=kl; k<=ku; ++k) {
+      for (int j=jl; j<=ju; ++j) {
+        for (int i=1; i<=ngh; ++i) {
+          GetCylCoord(pco,rad,phi,z,il-i,j,k);
+          prim(IDN,k,j,il-i) = DenProfileCyl(rad,phi,z);
+          vel = VelProfileCyl(rad,phi,z);
+          if (pmb->porb->orbital_advection_defined)
+            vel -= vK(pmb->porb, pco->x1v(il-i), pco->x2v(j), pco->x3v(k));
+          prim(IM1,k,j,il-i) = 0.0;
+          prim(IM2,k,j,il-i) = vel;
+          prim(IM3,k,j,il-i) = 0.0;
+          if (NON_BAROTROPIC_EOS)
+            prim(IEN,k,j,il-i) = PoverR(rad, phi, z)*prim(IDN,k,j,il-i);
+        }
+      }
+    }
+  } else if (std::strcmp(COORDINATE_SYSTEM, "spherical_polar") == 0) {
+    for (int k=kl; k<=ku; ++k) {
+      for (int j=jl; j<=ju; ++j) {
+        for (int i=1; i<=ngh; ++i) {
+          GetCylCoord(pco,rad,phi,z,il-i,j,k);
+          prim(IDN,k,j,il-i) = DenProfileCyl(rad,phi,z);
+          vel = VelProfileCyl(rad,phi,z);
+          if (pmb->porb->orbital_advection_defined)
+            vel -= vK(pmb->porb, pco->x1v(il-i), pco->x2v(j), pco->x3v(k));
+          prim(IM1,k,j,il-i) = 0.0;
+          prim(IM2,k,j,il-i) = 0.0;
+          prim(IM3,k,j,il-i) = vel;
+          if (NON_BAROTROPIC_EOS)
+            prim(IEN,k,j,il-i) = PoverR(rad, phi, z)*prim(IDN,k,j,il-i);
+        }
+      }
+    }
+  }
+}*/
+
+//----------------------------------------------------------------------------------------
+//! User-defined boundary Conditions: sets solution in ghost zones to initial values
+
+/*void DiskOuterX1(MeshBlock *pmb,Coordinates *pco, AthenaArray<Real> &prim, FaceField &b,
+                 Real time, Real dt,
+                 int il, int iu, int jl, int ju, int kl, int ku, int ngh) {
+  Real rad(0.0), phi(0.0), z(0.0);
+  Real vel;
+  OrbitalVelocityFunc &vK = pmb->porb->OrbitalVelocity;
+  if (std::strcmp(COORDINATE_SYSTEM, "cylindrical") == 0) {
+    for (int k=kl; k<=ku; ++k) {
+      for (int j=jl; j<=ju; ++j) {
+        for (int i=1; i<=ngh; ++i) {
+          GetCylCoord(pco,rad,phi,z,iu+i,j,k);
+          prim(IDN,k,j,iu+i) = DenProfileCyl(rad,phi,z);
+          vel = VelProfileCyl(rad,phi,z);
+          if (pmb->porb->orbital_advection_defined)
+            vel -= vK(pmb->porb, pco->x1v(iu+i), pco->x2v(j), pco->x3v(k));
+          prim(IM1,k,j,iu+i) = 0.0;
+          prim(IM2,k,j,iu+i) = vel;
+          prim(IM3,k,j,iu+i) = 0.0;
+          if (NON_BAROTROPIC_EOS)
+            prim(IEN,k,j,iu+i) = PoverR(rad, phi, z)*prim(IDN,k,j,iu+i);
+        }
+      }
+    }
+  } else if (std::strcmp(COORDINATE_SYSTEM, "spherical_polar") == 0) {
+    for (int k=kl; k<=ku; ++k) {
+      for (int j=jl; j<=ju; ++j) {
+        for (int i=1; i<=ngh; ++i) {
+          GetCylCoord(pco,rad,phi,z,iu+i,j,k);
+          prim(IDN,k,j,iu+i) = DenProfileCyl(rad,phi,z);
+          vel = VelProfileCyl(rad,phi,z);
+          if (pmb->porb->orbital_advection_defined)
+            vel -= vK(pmb->porb, pco->x1v(iu+i), pco->x2v(j), pco->x3v(k));
+          prim(IM1,k,j,iu+i) = 0.0;
+          prim(IM2,k,j,iu+i) = 0.0;
+          prim(IM3,k,j,iu+i) = vel;
+          if (NON_BAROTROPIC_EOS)
+            prim(IEN,k,j,iu+i) = PoverR(rad, phi, z)*prim(IDN,k,j,iu+i);
+        }
+      }
+    }
+  }
+}*/
 
 //----------------------------------------------------------------------------------------
 //! User-defined boundary Conditions: sets solution in ghost zones to initial values
