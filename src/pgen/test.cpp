@@ -30,7 +30,7 @@ Real DenProfileCyl(const Real rad, const Real phi, const Real z);
 Real PoverR(const Real rad, const Real phi, const Real z);
 Real VelProfileCyl(const Real rad, const Real phi, const Real z);
 // problem parameters which are useful to make global to this file
-Real gm0, gm_star, rstar, r0, rho0, dslope, p0_over_r0, pslope, gamma_gas, gm_planet, gm_planet2, alpha, nu_iso, scale, z, phi, r, rp, rp2, d, dfloor, Omega0, cosine_term, sine_term, epsilon;
+Real gm_star, rstar, r0, rho0, dslope, p0_over_r0, pslope, gamma_gas, gm_planet, gm_planet2, alpha, nu_iso, scale, z, phi, r, rp, rp2, d, dfloor, Omega0, cosine_term, sine_term, epsilon;
 } // namespace
 
 // User-defined boundary conditions for disk simulations
@@ -65,7 +65,6 @@ void DiskOuterX3(MeshBlock *pmb, Coordinates *pco, AthenaArray<Real> &prim,FaceF
 void Mesh::InitUserMeshData(ParameterInput *pin) {
   Real x1, x2, x3;
   // Get parameters for gravitatonal potential of central star mass
-  gm0 = pin->GetOrAddReal("problem", "GM", 0.0);
   r0 = pin->GetOrAddReal("problem","r0",1.0);
 
   // Get parameters for initial density and velocity
@@ -225,14 +224,17 @@ void StarandPlanet(MeshBlock *pmb, const Real time, const Real dt, const AthenaA
         epsilon = 0.3;
         Real R_H = rp*cbrt(gm_planet/(3*gm_star));
         Real r_s = sqrt(pow(r*cos(phi) - rp_value1*cos(phis),2) + pow(r*sin(phi) - rp_value1*sin(phis),2));
-        Real d = sqrt(pow(r*cos(phi) + (rp_value2)*cos(phip),2) + pow(r*sin(phi) + (rp_value2)*sin(phip),2));
-        Real Fg_star = (-1*gm_star) / pow(r_s, 2);
-        Real Fg_planet = -(dens)* ((gm_planet*d) / (sqrt(pow(pow(d,2) + pow(epsilon,2)*pow(R_H,2), 3))));
-        Real Fg_central = gm0/(pow(r,2));
-        cosine_term = ((rp_value1*cos(phis))*(r*cos(phi) - (rp_value2)*cos(phip)) + (rp_value1*sin(phis)) * (r*sin(phi) - (rp_value2)*sin(phip))) / (r_s * d);
-        sine_term = (rp_value1 * abs(r*sin(phi - phis) - (rp_value2)*sin(phip - phis))) / (r_s * d);
-        Real Fg_x = Fg_star*cosine_term + Fg_planet*cosine_term + Fg_central;
-        Real Fg_y = -Fg_star*sine_term - Fg_planet*sine_term - Fg_central;
+        Real d = sqrt(pow(r*cos(phi) - (rp_value2)*cos(phip),2) + pow(r*sin(phi) - (rp_value2)*sin(phip),2));
+        Real r_sx = r*cos(phi) - rp_value1*cos(phis);
+        Real r_sy = r*sin(phi) - rp_value1*sin(phis);
+        Real r_dx = r*cos(phi) - rp_value2*cos(phip);
+        Real r_dy = r*sin(phi) - rp_value2*sin(phip);
+        Real Fsx = (-1*gm_star*r_sx) / (pow(r_s,3));
+        Real Fsy = (-1*gm_star*r_sy) / (pow(r_s,3));
+        Real Fpx = -(dens)* ((gm_planet*r_dx) / (sqrt(pow(pow(d,2) + pow(epsilon,2)*pow(R_H,2), 3))));
+        Real Fpy = -(dens)* ((gm_planet*r_dy) / (sqrt(pow(pow(d,2) + pow(epsilon,2)*pow(R_H,2), 3))));
+        Real Fg_x = Fsx + Fpx;
+        Real Fg_y = -1*(Fsy + Fpy);
         Real delta_momentum_x = Fg_x * dt;
         Real delta_momentum_y = Fg_y * dt;
         cons(IM1, k,j,i) += delta_momentum_x;
@@ -259,14 +261,14 @@ void StarandPlanet(MeshBlock *pmb, const Real time, const Real dt, const AthenaA
       phi = pmb->pcoord->x2v(j);
       for (int i = pmb->is; i <= pmb->ie; ++i) {
         r = pmb->pcoord->x1v(i);
-        Real period = 2*M_PI*sqrt(pow(rp,3)/gm0);
+        Real period = 2*M_PI*sqrt(pow(rp,3)/gm_star);
         Real phip = 2*(M_PI / period)*time;
         Real d = sqrt(pow(rp,2) + pow(r,2) - 2*rp*r*cos(phi - phip));
         Real dens = prim(IDN,k,j,i);
         Real velocity_x = prim(IVX,k,j,i);
         Real velocity_y = prim(IVY,k,j,i);
         epsilon = 0.3;
-        Real R_H = cbrt(gm_planet/(3*gm0));
+        Real R_H = cbrt(gm_planet/(3*gm_star));
         Real F_g = -(dens)* ((gm_planet*d) / (sqrt(pow(pow(d,2) + pow(epsilon,2)*pow(R_H,2), 3))));
         cosine_term = (pow(r,2)*(pow(cos(phi),2)) - r*rp*cos(phi)*cos(phip) + pow(r,2)*(pow(sin(phi),2)) - r*rp*sin(phi)*sin(phip)) / (r*d);
         sine_term = (r*rp*cos(phi)*sin(phip) - r*rp*sin(phi)*cos(phip)) / (r*d);
@@ -406,7 +408,7 @@ Real DenProfileCyl(const Real rad, const Real phi, const Real z) {
   Real p_over_r = p0_over_r0;
   if (NON_BAROTROPIC_EOS) p_over_r = PoverR(rad, phi, z);
   Real denmid = rho0*std::pow(rad/r0,dslope);
-  Real dentem = denmid*std::exp(gm0/p_over_r*(1./std::sqrt(SQR(rad)+SQR(z))-1./rad));
+  Real dentem = denmid*std::exp(gm_star/p_over_r*(1./std::sqrt(SQR(rad)+SQR(z))-1./rad));
   den = dentem;
   return std::max(den,dfloor);
 }
@@ -425,9 +427,9 @@ Real PoverR(const Real rad, const Real phi, const Real z) {
 
 Real VelProfileCyl(const Real rad, const Real phi, const Real z) {
   Real p_over_r = PoverR(rad, phi, z);
-  Real vel = (dslope+pslope)*p_over_r/(gm0/rad) + (1.0+pslope)
+  Real vel = (dslope+pslope)*p_over_r/(gm_star/rad) + (1.0+pslope)
              - pslope*rad/std::sqrt(rad*rad+z*z);
-  vel = std::sqrt(gm0/rad)*std::sqrt(vel) - rad*Omega0;
+  vel = std::sqrt(gm_star/rad)*std::sqrt(vel) - rad*Omega0;
   return vel;
 }
 } // namespace
