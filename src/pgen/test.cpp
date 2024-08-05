@@ -234,7 +234,7 @@ void StarandPlanet(MeshBlock *pmb, const Real time, const Real dt, const AthenaA
         Real Fpx = -(dens)* ((gm_planet*r_dx) / (sqrt(pow(pow(d,2) + pow(epsilon,2)*pow(R_H,2), 3))));
         Real Fpy = -(dens)* ((gm_planet*r_dy) / (sqrt(pow(pow(d,2) + pow(epsilon,2)*pow(R_H,2), 3))));
         Real Fg_x = Fsx + Fpx;
-        Real Fg_y = -1*(Fsy + Fpy);
+        Real Fg_y = Fsy + Fpy;
         Real delta_momentum_x = Fg_x * dt;
         Real delta_momentum_y = Fg_y * dt;
         cons(IM1, k,j,i) += delta_momentum_x;
