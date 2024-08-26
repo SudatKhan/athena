@@ -30,7 +30,7 @@ Real DenProfileCyl(const Real rad, const Real phi, const Real z);
 Real PoverR(const Real rad, const Real phi, const Real z);
 Real VelProfileCyl(const Real rad, const Real phi, const Real z);
 // problem parameters which are useful to make global to this file
-Real gm0, r0, rho0, dslope, p0_over_r0, pslope, gamma_gas, gm_planet, alpha, nu_iso, scale, z, phi, r, rp, phip, d, dfloor, Omega0, cosine_term, sine_term, epsilon, R_H;
+Real gm_star, r0, rho0, dslope, p0_over_r0, pslope, gamma_gas, gm_planet, gm_planet2, alpha, nu_iso, scale, z, phi, r, rp, rp2, phip, d, dfloor, Omega0, cosine_term, sine_term, epsilon, R_H;
 } // namespace
 
 // User-defined boundary conditions for disk simulations
@@ -65,7 +65,7 @@ void DiskOuterX3(MeshBlock *pmb, Coordinates *pco, AthenaArray<Real> &prim,FaceF
 void Mesh::InitUserMeshData(ParameterInput *pin) {
   Real x1, x2, x3;
   // Get parameters for gravitatonal potential of deviated star mass
-  gm_star = pin->GetOrAddReal("problem", "starmass", 0.0)
+  gm_star = pin->GetOrAddReal("problem", "starmass", 0.0);
   r0 = pin->GetOrAddReal("problem","r0",1.0);
 
   // Get parameters for initial density and velocity
@@ -74,7 +74,7 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
 
   // Get parameters for gravitational potential of orbiting protoplanet
   gm_planet = pin -> GetOrAddReal("problem", "planetgm", 0.0);
-  gm_planet2 = pin -> GetOrAddReal("problem", "planetgm2", 0.0)
+  gm_planet2 = pin -> GetOrAddReal("problem", "planetgm2", 0.0);
   rp = pin -> GetOrAddReal("problem", "ptosr", 1.0);
   rp2 = pin -> GetOrAddReal("problem", "ptosr2", 0.0);
 
@@ -126,10 +126,10 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   EnrollViscosityCoefficient(Viscosity);
 
   Real Torque(MeshBlock *pmb,  int iout);
-  Real Torque2(Meshblock *pmb, int iouot);
+  Real Torque2(MeshBlock *pmb, int iout);
   AllocateUserHistoryOutput(2);
   EnrollUserHistoryOutput(0, Torque, "firat planet torque");
-  EnrollUserHistoryOutput(1, Torque, "second planet torque")
+  EnrollUserHistoryOutput(1, Torque, "second planet torque");
   return;
 }
 void MeshBlock::InitUserMeshBlockData(ParameterInput *pin) {
@@ -156,8 +156,8 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
         r = pcoord->x1v(i);
         GetCylCoord(pcoord,rad,phi,z,i,j,k); // convert to cylindrical coordinates
         Real surface_density = rho0 / sqrt(r/rp);
-        Real v_r = -3.0/2.0 * alpha * pow(scale,2) * sqrt((gm0+gm_planet)/r);
-        Real v_phi = r * sqrt(1-0.5*pow(scale,2)) * sqrt(gm0+gm_planet)* sqrt(1 / pow(r,3));
+        Real v_r = -3.0/2.0 * alpha * pow(scale,2) * sqrt((gm_star+gm_planet)/r);
+        Real v_phi = r * sqrt(1-0.5*pow(scale,2)) * sqrt(gm_star+gm_planet)* sqrt(1 / pow(r,3));
         phydro->u(IDN,k,j,i) = surface_density;
         phydro->u(IM1,k,j,i) = surface_density * v_r;
         if (std::strcmp(COORDINATE_SYSTEM, "cylindrical") == 0) {
@@ -272,7 +272,7 @@ void MeshBlock::UserWorkBeforeOutput(ParameterInput *pin) {
       phi = pcoord->x2v(j);
       for (int i = is; i <= ie; ++i) {
         r = pcoord->x1v(i);
-        Real period = 2*M_PI*sqrt(pow(rp,3)/gm0);
+        Real period = 2*M_PI*sqrt(pow(rp,3)/gm_star);
         phip = 2*(M_PI / period)*time1;
         d = sqrt(pow(rp,2) + pow(r,2) - 2*rp*r*cos(phi - phip));
         epsilon = 0.3;
@@ -363,7 +363,7 @@ Real DenProfileCyl(const Real rad, const Real phi, const Real z) {
   Real p_over_r = p0_over_r0;
   if (NON_BAROTROPIC_EOS) p_over_r = PoverR(rad, phi, z);
   Real denmid = rho0*std::pow(rad/r0,dslope);
-  Real dentem = denmid*std::exp(gm0/p_over_r*(1./std::sqrt(SQR(rad)+SQR(z))-1./rad));
+  Real dentem = denmid*std::exp(gm_star/p_over_r*(1./std::sqrt(SQR(rad)+SQR(z))-1./rad));
   den = dentem;
   return std::max(den,dfloor);
 }
@@ -382,9 +382,9 @@ Real PoverR(const Real rad, const Real phi, const Real z) {
 
 Real VelProfileCyl(const Real rad, const Real phi, const Real z) {
   Real p_over_r = PoverR(rad, phi, z);
-  Real vel = (dslope+pslope)*p_over_r/(gm0/rad) + (1.0+pslope)
+  Real vel = (dslope+pslope)*p_over_r/(gm_star/rad) + (1.0+pslope)
              - pslope*rad/std::sqrt(rad*rad+z*z);
-  vel = std::sqrt(gm0/rad)*std::sqrt(vel) - rad*Omega0;
+  vel = std::sqrt(gm_star/rad)*std::sqrt(vel) - rad*Omega0;
   return vel;
 }
 } // namespace
