@@ -410,7 +410,7 @@ void OutflowInner(MeshBlock *pmb,Coordinates *pco, AthenaArray<Real> &prim, Face
           prim(IVY,k,j,il-i) = prim(IVY,k,j,il) * 1/sqrt(r_ghost/r_active);
           prim(IVZ,k,j,il-i) = prim(IVZ,k,j,il);
           if (NON_BAROTROPIC_EOS) 
-            prim(IPR,k,j,il-i) = prim(IPR,k,j,il) * pow((r_ghost/r_active) 3/2); 
+            prim(IPR,k,j,il-i) = prim(IPR,k,j,il) * pow((r_ghost/r_active), 3/2); 
         }
       }
     }
