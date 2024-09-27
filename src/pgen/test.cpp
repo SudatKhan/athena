@@ -26,9 +26,7 @@ using namespace std;
 
 namespace {
 void GetCylCoord(Coordinates *pco,Real &rad,Real &phi,Real &z,int i,int j,int k);
-Real DenProfileCyl(const Real rad, const Real phi, const Real z);
 Real PoverR(const Real rad, const Real phi, const Real z);
-Real VelProfileCyl(const Real rad, const Real phi, const Real z);
 // problem parameters which are useful to make global to this file
 Real gm_star, rstar, r0, rho0, dslope, p0_over_r0, pslope, gamma_gas, gm_planet, gm_planet2, alpha, nu_iso, scale, z, phi, r, rp, rp2, d, dfloor, Omega0, cosine_term, sine_term, epsilon;
 } // namespace
@@ -330,36 +328,12 @@ void GetCylCoord(Coordinates *pco,Real &rad,Real &phi,Real &z,int i,int j,int k)
 }
 
 //----------------------------------------------------------------------------------------
-//! computes density in cylindrical coordinates
-
-Real DenProfileCyl(const Real rad, const Real phi, const Real z) {
-  Real den;
-  Real p_over_r = p0_over_r0;
-  if (NON_BAROTROPIC_EOS) p_over_r = PoverR(rad, phi, z);
-  Real denmid = rho0*std::pow(rad/r0,dslope);
-  Real dentem = denmid*std::exp(gm_star/p_over_r*(1./std::sqrt(SQR(rad)+SQR(z))-1./rad));
-  den = dentem;
-  return std::max(den,dfloor);
-}
-
-//----------------------------------------------------------------------------------------
 //! computes pressure/density in cylindrical coordinates
 
 Real PoverR(const Real rad, const Real phi, const Real z) {
   Real poverr;
   poverr = p0_over_r0*std::pow(rad/r0, pslope);
   return poverr;
-}
-
-//----------------------------------------------------------------------------------------
-//! computes rotational velocity in cylindrical coordinates
-
-Real VelProfileCyl(const Real rad, const Real phi, const Real z) {
-  Real p_over_r = PoverR(rad, phi, z);
-  Real vel = (dslope+pslope)*p_over_r/(gm_star/rad) + (1.0+pslope)
-             - pslope*rad/std::sqrt(rad*rad+z*z);
-  vel = std::sqrt(gm_star/rad)*std::sqrt(vel) - rad*Omega0;
-  return vel;
 }
 } // namespace
 
@@ -410,7 +384,7 @@ void OutflowInner(MeshBlock *pmb,Coordinates *pco, AthenaArray<Real> &prim, Face
           prim(IVY,k,j,il-i) = prim(IVY,k,j,il) * 1/sqrt(r_ghost/r_active);
           prim(IVZ,k,j,il-i) = prim(IVZ,k,j,il);
           if (NON_BAROTROPIC_EOS) 
-            prim(IPR,k,j,il-i) = prim(IPR,k,j,il) * pow((r_ghost/r_active), 3/2); 
+            prim(IPR,k,j,il-i) = prim(IPR,k,j,il) * pow((r_ghost/r_active), -3/2); 
         }
       }
     }
@@ -443,7 +417,3 @@ void Steady_State_Outer(MeshBlock *pmb, Coordinates *pco,
     }
   }
 }
-
-//----------------------------------------------------------------------------------------
-
-//----------------------------------------------------------------------------------------
