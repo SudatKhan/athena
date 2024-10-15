@@ -99,12 +99,12 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
             int is, int ie, int js, int je, int ks, int ke);
   EnrollViscosityCoefficient(Viscosity);
 
-  /*Real Torque(MeshBlock *pmb, int iout);
+  Real Torque(MeshBlock *pmb, int iout);
   Real Torque2(MeshBlock *pmb, int iout);
   AllocateUserHistoryOutput(2);
   EnrollUserHistoryOutput(0, Torque, "first planet torque");
   EnrollUserHistoryOutput(1, Torque2, "second planet torque");
-  return;*/
+  return;
 }
 /*void MeshBlock::InitUserMeshBlockData(ParameterInput *pin) {
     AllocateUserOutputVariables(2);
@@ -266,7 +266,7 @@ void Viscosity(HydroDiffusion *phdif, MeshBlock *pmb, const AthenaArray<Real> &p
   }
 }*/
 
-/*Real Torque(MeshBlock *pmb, int iout) { //This torque is only calculated for first planet
+Real Torque(MeshBlock *pmb, int iout) { //planet one torque
   int is=pmb->is, ie=pmb->ie, js=pmb->js, je=pmb->je, ks=pmb->ks, ke=pmb->ke;
   Real sum_torque = 0;
   Real time2 = pmb->pmy_mesh->time;
@@ -291,7 +291,7 @@ void Viscosity(HydroDiffusion *phdif, MeshBlock *pmb, const AthenaArray<Real> &p
   return sum_torque;
 }
 
-Real Torque2 (MeshBlock *pmb, int iout) { 
+Real Torque2 (MeshBlock *pmb, int iout) { //planet two torque
   int is=pmb->is, ie=pmb->ie, js=pmb->js, je=pmb->je, ks=pmb->ks, ke=pmb->ke;
   Real sum_torque2 = 0;
   Real time3 = pmb->pmy_mesh->time;
@@ -314,7 +314,7 @@ Real Torque2 (MeshBlock *pmb, int iout) {
     }
   }
   return sum_torque2;
-}*/
+}
 
 namespace {
 //----------------------------------------------------------------------------------------
