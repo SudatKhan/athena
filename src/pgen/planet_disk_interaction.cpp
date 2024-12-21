@@ -276,7 +276,7 @@ Real Torque(MeshBlock *pmb, int iout) { //planet one torque
       phi = pmb->pcoord->x2v(j);
       for(int i=is; i<=ie; i++) {
         r = pmb->pcoord->x1v(i);
-        Real period = 2 * M_PI * sqrt(pow(rp, 3) / gm_star);
+        Real period = 2 * M_PI * sqrt(pow(rp, 3) / (gm_star + gm_planet));
         Real phip = 2 * (M_PI / period) * time2;
         Real d = sqrt(pow(rp,2) + pow(r,2) - 2*rp*r*cos(phi - phip));
         Real R_H = rp*cbrt(gm_planet/(3*gm_star));
@@ -301,7 +301,7 @@ Real Torque2 (MeshBlock *pmb, int iout) { //planet two torque
       phi = pmb->pcoord->x2v(j);
       for(int i=is; i<=ie; i++) {
         r = pmb->pcoord->x1v(i);
-        Real period = 2 * M_PI * sqrt(pow(rp2, 3) / gm_star);
+        Real period = 2 * M_PI * sqrt(pow(rp2, 3) / (gm_star +gm_planet + gm_planet2));
         Real phip = 2 * (M_PI / period) * time3;
         Real d = sqrt(pow(rp2,2) + pow(r,2) - 2*rp2*r*cos(phi - phip));
         Real R_H = rp2*cbrt(gm_planet2/(3*gm_star));
