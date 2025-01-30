@@ -206,12 +206,18 @@ void StarandPlanet(MeshBlock *pmb, const Real time, const Real dt, const AthenaA
         cons(IM2, k,j,i) += prim(IDN,k,j,i)*gphi*dt;
         if (NON_BAROTROPIC_EOS) cons(IEN,k,j,i) += (prim(IDN,k,j,i)*prim(IVX,k,j,i)*gr + prim(IDN,k,j,i)*prim(IVY,k,j,i)*gphi) * dt;
         // update temperature
-        Real gamma = (rho0*p0_over_r0) / (pow(r0, dslope));
-        Real beta = rho0/(pow(r0, dslope));
-        Real pressure_0 = gamma * pow(r,pslope+dslope);
-        Real surface_density_0 = beta * pow(r, dslope);
-        Real pressure = dens * (pressure_0/surface_density_0); //definition of isothermal eos
-        if (NON_BAROTROPIC_EOS) cons(IEN,k,j,i) += 3.0/2.0 * (pressure-prim(IPR,k,j,i));    
+        //Real gamma = (rho0*p0_over_r0) / (pow(r0, dslope));
+        //Real beta = rho0/(pow(r0, dslope));
+        //Real pressure_0 = gamma * pow(r,pslope+dslope);
+        //Real surface_density_0 = beta * pow(r, dslope);
+        //Real pressure = dens * (pressure_0/surface_density_0); //definition of isothermal eos
+        //if (NON_BAROTROPIC_EOS) cons(IEN,k,j,i) += 3.0/2.0 * (pressure-prim(IPR,k,j,i));    
+        if (NON_BAROTROPIC_EOS) {
+          Real p_over_r = PoverR(r,phi,z); //temperature profile which scales with radius
+          cons(IEN,k,j,i) = p_over_r*cons(IDN,k,j,i)/(gamma_gas - 1.0);
+          cons(IEN,k,j,i) += 0.5*(SQR(cons(IM1,k,j,i))+SQR(cons(IM2,k,j,i))
+                                       + SQR(cons(IM3,k,j,i)))/cons(IDN,k,j,i);
+        }
       }
     }
   }
@@ -379,12 +385,17 @@ void OutflowInner(MeshBlock *pmb,Coordinates *pco, AthenaArray<Real> &prim, Face
         for (int i=1; i<=ngh; ++i) {
           Real r_active = pmb->pcoord->x1v(il);
           Real r_ghost = pmb->pcoord->x1v(il-i);
-          prim(IDN,k,j,il-i) = prim(IDN,k,j,il)* 1/sqrt(r_ghost/r_active);
-          prim(IVX,k,j,il-i) = prim(IVX,k,j,il)* 1/sqrt(r_ghost/r_active);
-          prim(IVY,k,j,il-i) = prim(IVY,k,j,il) * 1/sqrt(r_ghost/r_active);
+          Real omega = sqrt((gm_star + gm_planet)/(pow(r_active,3)));
+          Real sound_speed = scale * omega*r_active;
+          Real kinematic_viscosity = alpha * sound_speed * (sound_speed/omega); 
+          prim(IDN,k,j,il-i) = prim(IDN,k,j,il)* 1.0/sqrt(r_ghost/r_active);
+          prim(IVX,k,j,il-i) = prim(IVX,k,j,il)* 1.0/sqrt(r_ghost/r_active);
+          //if (abs(prim(IVX,k,j,il-i)) > 3.0/2.0 * kinematic_viscosity/r_active)
+            //prim(IVX,k,j,i,il-i) = -3.0/2.0 * kinematic_viscosity/r_active;
+          prim(IVY,k,j,il-i) = prim(IVY,k,j,il) * 1.0/sqrt(r_ghost/r_active);
           prim(IVZ,k,j,il-i) = prim(IVZ,k,j,il);
           if (NON_BAROTROPIC_EOS) 
-            prim(IPR,k,j,il-i) = prim(IPR,k,j,il) * pow((r_ghost/r_active), -3/2); 
+            prim(IPR,k,j,il-i) = prim(IPR,k,j,il) * pow((r_ghost/r_active), -3.0/2.0); 
         }
       }
     }

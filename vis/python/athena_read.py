@@ -631,7 +631,7 @@ def athdf(filename, raw=False, data=None, quantities=None, dtype=None, level=Non
                         raise AthenaError('Ghost zones incompatible with user-defined'
                                           + ' coordinate spacing')
                     data[xf] = face_func(xmin, xmax, xrat_root, nx+1)
-                elif xrat_root == 1.0:
+                elif xrat_root == 1.0 or np.all(levels == level):
                     if np.all(levels == level):
                         data[xf] = np.empty(nx + 1)
                         for n_block in range(int((nx - 2*num_ghost)
