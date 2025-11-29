@@ -588,21 +588,26 @@ void TableOpacity(MeshBlock *pmb, AthenaArray<Real> &prim)
 
 
 Real Potential(Real x3, Real x2, Real x1, Real time) {
-  Real pot, x, z;
+  Real pot, rcyl, z, phi;
   if (cylcoord) {
     pot = -qthermal/std::sqrt(x1*x1 + x3*x3 + epsilon*epsilon);
-    x = x1*std::cos(x2);
+    rcyl = x1;
+    phi = x2;
     z = x3;
   }
   else {
     pot = -qthermal/std::sqrt(x1*x1 + epsilon*epsilon);
-    x = x1*std::sin(x2)*std::cos(x3);
+    rcyl = x1*std::sin(x2);
+    phi = x3;
     z = x1*std::cos(x2);
   }
   if (time < tinj)
     pot *= SQR(std::sin(PI*time/tinj/2.0));
-  if (rotation)
-    pot += -1.5*x*x;
+  if (rotation) {
+    if (!axisymmetric)
+      sq_cosphi = std::cos(phi)*std::cos(phi);
+    pot += -1.5*rcyl*rcyl*sq_cosphi;
+  }
   if (stratified)
     pot += 0.5*z*z;
   return pot;
